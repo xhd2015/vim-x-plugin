@@ -1,0 +1,423 @@
+" debug code
+" set verbose=20
+" The Vundle plugin
+set nocompatible              " be iMproved, required
+" show title as a hint to MacOS desktop preview
+set title
+function! s:getTitleString()
+	let name = fnamemodify($PWD,":t")
+	if filereadable("go.mod")
+		return "[go]".name
+	endif
+	if filereadable("package.json")
+		return "[nodejs]".name
+	endif
+	if filereadable("pom.xml")
+		return "[java]".name
+	endif
+	return name
+endfunction
+let &titlestring = s:getTitleString()
+" Make backspace delete chars normally in insert mode
+set backspace=indent,eol,start
+filetype off                  " required
+" use marker to automatically fold
+set foldmethod=marker
+
+" utils to be loaded early
+source ~/.vim/plugin/vim-x-plugin/init0_xlog.vim
+"===============BASIC FUNCTIONS==============
+" Window motion
+" Would like ww over wl because ww is far most quick
+" noremap maps for nvo, o means operator-pending,see :omap-info
+" <Cmd> prefix works anywhere
+"    insert mode =  <C-O>:
+"    terminal mode = vim: <C-W>:
+"                    nvim:  <C-\><C-N>:
+"    history to define for each separately are ended!
+"  nvit = norma,  visual, insert, terminal
+function! s:nvit_noremap(cmd,map)                    	
+	" note that in execute ,<CR>s are automatically transferred, no need
+	" to escape in the original string
+	call s:nvt_noremap(a:cmd,a:map)
+	execute "inoremap <silent> ".a:cmd." ".a:map
+endfunction
+function! s:nvt_noremap(cmd,map)
+	call s:nv_noremap(a:cmd,a:map)
+	execute "tnoremap <silent> ".a:cmd." ".a:map
+endfunction
+function! s:nv_noremap(cmd,map)
+	execute "nnoremap <silent> ".a:cmd." ".a:map
+	execute "vnoremap <silent> ".a:cmd." ".a:map
+endfunction
+
+" why we desgined this function?
+" because the so-called <Cmd> does not work good
+" for example,when using <Cmd> to define map,the you can not
+" enter another terminal from terminal mode or insert mode
+" I struggled this for an afternoon,and knowing it
+function! NOREMAP_nv(cmd,map)
+	call s:nv_noremap_pure(a:cmd,a:map)
+endfunction
+function! NOREMAP_nvt(cmd,map)
+	call s:nvt_noremap_pure(a:cmd,a:map)
+endfunction
+function! NOREMAP_nvit(cmd,map)
+	call s:nvit_noremap_pure(a:cmd,a:map)
+endfunction
+function! s:nv_noremap_pure(cmd,map)
+	execute "nnoremap <silent> ".a:cmd." :".a:map
+	execute "vnoremap <silent> ".a:cmd." :".a:map
+endfunction
+function! s:nvt_noremap_pure(cmd,map)
+	XInfo "nvt noremap ".a:cmd."=>".a:map
+	call s:nv_noremap_pure(a:cmd,a:map)
+	if has("nvim")
+		XInfo "tnoremap ".a:cmd."=>".a:map
+		execute "tnoremap <silent> ".a:cmd." :".a:map
+	else
+		execute "tnoremap <silent> ".a:cmd." :".a:map
+	endif
+endfunction
+function! s:nvit_noremap_pure(cmd,map)
+	call s:nvt_noremap_pure(a:cmd,a:map)
+	execute "inoremap <silent> ".a:cmd." :".a:map
+endfunction
+function! s:nvit_noremap_command_edit(keys)
+	execute "nnoremap ".a:keys." :"
+	execute "vnoremap ".a:keys." :"
+	execute "inoremap ".a:keys." :"
+	if has("nvim")
+		execute "tnoremap ".a:keys." :"
+	else
+		execute "tnoremap ".a:keys." :"
+	endif
+endfunction
+
+"================PLUGINS & RUNTIMEPATH===============
+" set the runtime path to include Vundle and initialize
+set rtp+=~/.vim/bundle/Vundle.vim
+set rtp+=/usr/local/opt/fzf " fuzzy search
+call vundle#begin()
+" alternatively, pass a path where Vundle should install plugins
+"call vundle#begin('~/some/path/here')
+
+" let Vundle manage Vundle, required
+Plugin 'VundleVim/Vundle.vim'
+
+" Track the engine.
+Plugin 'SirVer/ultisnips'
+
+" Snippets are separated from the engine. Add this if you want them:
+Plugin 'honza/vim-snippets'
+
+" color schemes
+Plugin 'NLKNguyen/papercolor-theme'
+
+" fzf
+Plugin 'junegunn/fzf.vim'
+
+" CoC
+"  post: yarn install --frozen-lockfile
+Plugin 'neoclide/coc.nvim'
+call vundle#end()
+
+" not like traditional vim,this color schema changes
+"    original  pure dark backgroud => a darked-gray
+"    original  font colors are so primitive like old ancient => atom style 
+colorscheme PaperColor
+
+" ======== ULTISNIPS SETUP ===========
+" Trigger configuration. Do not use <tab> if you use https://github.com/Valloric/YouCompleteMe.
+let g:UltiSnipsExpandTrigger="<tab>"
+let g:UltiSnipsJumpForwardTrigger="<c-b>"
+let g:UltiSnipsJumpBackwardTrigger="<c-z>"
+let g:UltiSnipsListSnippets="<c-u>" 
+" If you want :UltiSnipsEdit to split your window.
+let g:UltiSnipsEditSplit="vertical"
+
+" ======= CoC Plugins ==========
+" TextEdit might fail if hidden is not set.
+set hidden
+
+" Use <c-7> to trigger completion.
+inoremap <silent><expr>  coc#refresh()
+
+" GoTo code navigation.
+" map gd to goto declaration
+"  note that must use nmap here, nnoremap does not work
+" nnoremap <silent> gd <Plug>(coc-definition)
+nmap <silent> gd <Plug>(coc-definition)
+nmap <silent> gy <Plug>(coc-type-definition)
+nmap <silent> gi <Plug>(coc-implementation)
+nmap <silent> gr <Plug>(coc-references)
+ 
+" Use K to show documentation in preview window.
+nnoremap <silent> K :call <SID>show_documentation()<CR>
+function! s:show_documentation()
+  if (index(['vim','help'], &filetype) >= 0)
+    execute 'h '.expand('<cword>')
+  else
+    call CocAction('doHover')
+  endif
+endfunction
+
+" Symbol renaming.
+nmap <leader>r <Plug>(coc-rename)
+
+" ========== Vim-go plugins ========
+" vim-go's gd clashes with CoC's go,so we disable it here
+let g:go_def_mapping_enabled = 0
+" vim-go maps K to godoc,disable here
+let g:go_doc_keywordprg_enabled = 0
+
+" load a better scheme in dark for vim diff
+" see https://stackoverflow.com/questions/2019281/load-different-colorscheme-when-using-vimdiff
+"autocmd FilterWritePre * if &bg==#'dark'|if &diff | colorscheme vimdiff-in-dark| endif | endif
+
+augroup VIM_DIFF_COLOR
+	autocmd!
+	autocmd BufReadPre * if &bg==#'dark'|if &diff | colorscheme vimdiff-in-dark| endif | endif
+augroup END
+
+" show line numbers, also, use = to show current number 
+set number       
+set hlsearch    " enable highlight search, use nohl to clear search marks
+set incsearch   " enable incremental search
+
+syntax on       " enable highlight keywords
+
+let mapleader = ","
+
+" Hardcore mode, disable arrow keys.
+nnoremap <Up> <NOP>
+nnoremap <Down> <NOP>
+nnoremap <Left> <NOP>
+nnoremap <Right> <NOP>
+
+" on some terminal such as iTerm2 for MacOS, under insert mode, entering <Up>
+" will insert OA as 2 chars, so we set a map here to correct this illness
+" behaviour
+" terminal  represents Up as ^[OA, Down as ^[OB, Rigth as ^[OC, Left as ^[OD
+" NOTE: you must type ^[OA in the following sequece: C-V <UP>,  please do not
+" enter ^ [ O A  directly,that is not a character
+" vim sends <UP> as ^[OA, but nvim sends <UP> (enter C-V <UP>) 
+if !has("nvim")
+	inoremap OA <NOP>
+	inoremap OD <NOP>
+	inoremap OC <NOP>
+	inoremap OB <NOP>
+else
+	inoremap <Up> <NOP>
+	inoremap <Left> <NOP>
+	inoremap <Right> <NOP>
+	inoremap <Down> <NOP>
+endif
+
+" OO: a new line is added under cursor,and the cursor remains
+" less used
+nnoremap OO m'o<ESC>`'
+" open messages,this is quit useful to see what happened for go build because
+" when error occurse only last line of message is shown
+" see :help :messages
+" this is used to see the last 10 messages
+" previously we use mm as the key,but to exit it we are used to press m
+" again which is a mark command,so replace second m with <CR>
+" NOTE: vim allows this:
+"      nnoremap m:10messages<CR>
+" there is no space before :
+" however, if this is executed in nvim, it reports "No mapping found"
+nnoremap m :10messages<CR>
+
+" enable go tools
+filetype plugin indent on
+
+" jj kk moves faster
+" note in most cases if you press j on, only jj is invoked, jjj gets no chance
+noremap jj 4j
+noremap kk 4k
+" noremap jjj 6j
+" noremap kkk 6k
+
+" set timeoutlen lesser(defautl 1000ms) so we do not need to wait too long
+set timeout
+" timeoutlen=100 too short,  ww not working
+" timeoutlen=150 still a little short,  ww working if you fast enough
+" timeoutlen=170 is preferable, not too soon,not too slow
+set timeoutlen=170
+
+" in normal mode, treat space as enter
+" NOTE: we do not use noremap
+" nmap <Space> <CR>
+
+" T,t is used like F,f to locate char, we remap them
+"nnoremap t <C-W>gt
+"nnoremap T <C-W>gT
+
+" M orginally means goto middle of window, we change here
+" now M for tab prefix
+nnoremap tt <C-W>gt
+nnoremap ttt <C-W>gT
+
+" open FZF BLines search
+command! B BLines
+nnoremap <silent> / :BLines<CR>
+nnoremap // /
+
+"==================== WINDOW COMMANDS=============
+let s:nvit_wincmdMap = { 'ww':'w', 'wp':'p','wh':'h','wj':'j','wk':'k','wl':'l','wt':'t','wb':'b'}
+for s:key in keys(s:nvit_wincmdMap)
+	call s:nvit_noremap(s:key, "<Cmd>wincmd ".s:nvit_wincmdMap[s:key]."<CR>")
+endfor
+" do not map wh in insert mode because its too common
+iunmap wh
+" ww is special, in normal mode we want it to accept a number as argument
+nnoremap ww <C-W><C-W>
+" make w1 moves super faster
+nnoremap 1w 4w
+nnoremap 1b 4b 
+" nnoremap wb <C-W>W
+" goto last window
+" nnoremap wp :call GoToLastWindow()<CR>
+" nnoremap wp <C-W>p
+" wp previously is  wprevious
+" m0 clears search marks
+call s:nvit_noremap("m0","<Cmd>nohl<CR>")
+
+
+" ================= EDIT VIMRC EASILY ==============
+" edit ~/.vimrc easily
+" in nvim, $MYVIMRC is ~/.config/nvim/init.vim
+" in vim, $MYVIMRC is ~/.vimrc
+let s:vimrc_source = $MYVIMRC
+function! s:editVimrc()
+	call g:XLayout.OpenWindowForNameSettingMain(s:vimrc_edit)
+endfunction
+
+" NOTE: sourceVimrc cannot be redefined when sourcing
+if !exists("*s:sourceVimrc")
+	let s:sourcedVimrcCount = 0
+	function! s:sourceVimrc()
+		let s:sourcedVimrcCount=s:sourcedVimrcCount + 1
+		source $MYVIMRC
+		echom "sourced ".$MYVIMRC." ".s:sourcedVimrcCount." times"
+	endfunction
+endif
+" nnoremap <silent> <Leader>e :call <SID>editVimrc()<CR>
+nnoremap <silent> <Leader>e :call g:XLayout.OpenWindowForNameSettingMain("~/.vimrc")<CR>
+nnoremap <silent> <Leader>s :call <SID>sourceVimrc()<CR>
+" nnoremap <Leader>r :rubyf ~/Scripts/ruby/rubyvim.rb<CR>
+nnoremap <silent> <Leader>t :call g:XLayout.OpenWindowForNameSettingMain("~/.todos")<CR>
+" not very useful
+" inoremap <Leader>w <C-O>:w<CR>
+" nnoremap <Leader>w <C-O>:w<CR>
+
+" set  ,; as : for every mode
+" empty means enter command editing mode
+call s:nvit_noremap_command_edit("<Leader>;")
+" inoremap <Leader>/ m`^i#<Space><ESC>``
+" nnoremap <Leader>/ m`^i#<Space><ESC>``
+
+
+
+" ======================= TERMINAL SETUP ===================
+" differences between vim and nvim:
+"  start: term bash --login
+"      vim will split a new window
+"      nvim will open it in current window
+"  entering:
+"      vim automatically enter terminal mode(accepting input)
+"      nvim enter normal mode,you need to type i to enter terminal mode
+"        nvim introduces :startinsert/:stopinsert to enter/exit terminal-mode
+"  normal command exec:
+"      vim prefix with <C-W>
+"      nvim prefix with <C-\><C-N>
+"   exit:
+"      vim unless ++close specified, vim will wait :q to exit
+"      nvim does similary,it shows [Process exited],but any key you input will
+"      cause nvim to close the buffer automatically,you can not select text
+"      then
+if has("nvim")
+	" after enter a buffer with buftype=terminal, start insert automatically
+	function! s:BufferTerminalAutoInsert()
+		XTrace "BufEnter about to terminal auto insert"
+		if &buftype ==# 'terminal'
+			XTrace "BufEnter terminal,start insert"
+			startinsert
+		endif
+	endfunction
+	augroup NVIM_TERMINAL_GROUP
+		autocmd!
+		" auto enter insert mode for term
+		" note that BufEnter handle move cases,and TermOpen handle
+		" initial case
+		autocmd TermOpen *  execute "XInfo 'TermOpen'" | startinsert | set nonumber
+		" TermOpen -> BufEnter
+		" the first time there is no BufEnter event
+		autocmd BufEnter * call <SID>BufferTerminalAutoInsert()
+	augroup END
+endif
+function! s:SwitchTerminal(name,role)
+	call g:XLayout.SwitchFileOrCmd(a:name,"let roleNR = g:XLayout.GetOrCreateWindow(\"".a:role."\",1)|execute roleNR.\"wincmd w\"")
+endfunction
+
+" nnoremap <Leader><Leader>  :call OpenOrFocusTerminal()<CR>
+" call s:nvit_noremap("<Leader><Leader>" , "<Cmd>call <SID>SwitchTerminal('bash(local)','local')<CR>")
+" call s:nvit_noremap("<Leader>l", "<Cmd>call <SID>SwitchTerminal('bash(remote)','remote')<CR>")
+" call s:nv_noremap("<Leader><Leader>" , "<Cmd>call OpenOrFocusTerminal()<CR>")
+" call s:nv_noremap("<Leader>l" , "<Cmd>call OpenOrFocusTerminalRemote()<CR>")
+call s:nvit_noremap_pure("<Leader><Leader>" , "call <SID>SwitchTerminal('bash(local)','local')")
+call s:nvit_noremap_pure("<Leader>l", "call <SID>SwitchTerminal('bash(remote)','remote')")
+" nnoremap <Leader>l  :call OpenOrFocusTerminalRemote()<CR>
+" redefine ESC
+" inoremap jk <Esc>  " here, jk with pure <ESC> sometimes moves the
+" position,for example when you are at end of a line
+inoremap jk <C-O>m`<ESC>``
+vnoremap jk <ESC>`<
+" INOREMAP KJ <eSC> 
+inoremap <Esc> <NOP>
+
+if !has("nvim")
+	" vim maps <C-W>N to enter normal mode,however since we would like jk
+	" as <ESC> anywhere,we map it here
+	" tnoremap wn  <C-W>N
+
+	tnoremap jk <C-W>N
+
+	" paste clipboard
+	tnoremap <Leader>p <C-W>"*
+
+	" vim does not need to remeber the cursor position
+	" 	tnoremap lw <C-W>:if exists("b:saved_cursor") | :call setpos('.', b:save_cursor) | :unlet b:saved_cursor | :endif
+else
+	" ====> for nvim terminal
+	tnoremap jk <C-\><C-N><ESC>
+	tnoremap <Leader>; <C-\><C-N>:
+	" paste clipboard
+	" tnoremap <Leader>p <C-W>"*
+
+	" l prefixed commands are for terminal
+	" lw = last location we preserved
+	function! s:GoBackCursor()
+		if exists("b:saved_cursor") 
+			call setpos('.', b:saved_cursor) 
+			" clear it
+			unlet b:saved_cursor
+		endif
+	endfunction
+	tnoremap lw <C-\><C-N>:call <SID>GoBackCursor()<CR>
+endif
+
+
+
+" let AAA = "<SID>"
+" AAA is not replaced by script instance ID
+" But when used in String,it is safe however
+" the execute will expand <SID> in it
+"
+
+command! Showbyte normal! g<C-G>
+
+" File type to erb
+" autocmd BufEnter *.erb set filetype=erb
+

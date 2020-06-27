@@ -1,0 +1,10 @@
+" nvim features:
+"     insert mode cursor is a single |
+"     normal mode cursor is a block
+set runtimepath^=~/.vim runtimepath+=~/.vim/after
+let &packpath = &runtimepath
+source ~/.vimrc
+
+
+
+" nvim specific settings
